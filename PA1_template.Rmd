@@ -8,18 +8,124 @@ output:
 
 ## Loading and preprocessing the data
 
-
-
+Loading the data into a specified variable called data.
+```{r}
+data<-read.csv(unz("activity.zip","activity.csv"))
+```
+The summary of the data to give an idea how to process the data.
+```{r}
+summary(data)
+```
+The fisrst six rows of the data.
+```{r}
+head(data)
+```
+Removing the NA rows from the data
+```{r}
+data<-subset(data,!(is.na(data$steps)))
+head(data)
+```  
 ## What is mean total number of steps taken per day?
 
-
+The data will be sorted according to day to calculate the numnber of steps taken per day using the dplyr package
+```{r}
+library("dplyr")
+day<-group_by(data,date)
+daysteps<-summarise(day,total=sum(steps))
+print(daysteps)
+```
+Making a histogram from the processed data above
+```{r}
+hist(daysteps$total,main = "Histogram of Total Number of Steps Taken per Day", xlab ="Number of Steps Taken per Day" )
+```
+The mean and median of the total number of steps taken per day can be calculated by using the summary function on the processed data called "daysteps".
+```{r}
+summary(daysteps)
+```
+**Mean: 10766**  
+**Median: 10765**
 
 ## What is the average daily activity pattern?
+Making a line plot for average number of steps taken, averaged across all days versus 5-minute interval
 
-
+```{r}
+interval<-group_by(data,interval)
+intervalstep<- summarise(interval, mean = mean(steps))
+intervalstep
+plot(intervalstep$interval,intervalstep$mean,type = 'l', main = "Average Number of Steps Over All Days", xlab = "Time Interval",ylab = "Average Number of Steps")
+```  
+  
+Finding the interval which the maximum number of steps occurs
+```{r}
+intervalstep[which.max(intervalstep$mean),]
+```
 
 ## Imputing missing values
+Calculating the total number of missing values in dataset
+```{r}
+raw_data<-read.csv(unz("activity.zip","activity.csv"))
+sum(is.na(raw_data))
+```
 
+The missing data will be filled with values from Average Number of Steps Over All Days for the specified interval
+```{r}
+
+for(i in 1:nrow(raw_data)){
+         if(is.na(raw_data$steps[i])){
+                  inter<-subset(intervalstep,intervalstep$interval==raw_data$interval[i])
+                  raw_data$steps[i]<-inter[1,2]
+         }
+}
+```  
+Below is the first 6 rows of the new filled dataset
+```{r}
+head(raw_data)
+
+
+```  
+
+Histogram for total number of steps taken each day
+```{r}
+raw_data$steps<-as.numeric(raw_data$steps)
+newday<-group_by(raw_data,date)
+newdaysteps<-summarise(newday,total=sum(steps))
+hist(newdaysteps$total,main = "Histogram of Total Number of Steps Taken per Day", xlab ="Number of Steps Taken per Day" )
+```  
+  
+Calculating the mean and median of the total number of steps taken per day
+```{r}
+summary(newdaysteps)
+```
+**Mean: 10766**  
+**Median: 10766**  
+The values from both variable are almost the same with negligible deviation. The calculation of the mean and median become more reliable since more data points are used in the calculation.  
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+  
+The class for date column is changed to Date using the as.Date() function. Then, a new column is added to identify the day of the date. Finally, using the day column created, the data is classified into 2 levels using the factor function.
+```{r}
+raw_data$date<-as.Date(raw_data$date)
+class(raw_data$date)
+raw_data<-mutate(raw_data,day=weekdays(date))
+for(j in 1:nrow(raw_data)){
+         if(raw_data$day[j]=='Monday'|raw_data$day[j]=='Tuesday'|raw_data$day[j]=='Wednesday'|raw_data$day[j]=='Thrusday'|raw_data$day[j]=='Friday'){
+                  raw_data$day[j]<-"weekday"
+         }
+         else{
+                  raw_data$day[j]<-"weekend"
+         }
+}
+raw_data$day<-factor(raw_data$day)
+levels(raw_data$day)
+```
+  
+Plotting the graph for each category
+```{r}
+
+newintervalstep<- aggregate(steps ~ interval + day, raw_data, mean)
+library("ggplot2")
+qplot(interval, steps, data = newintervalstep,  type = 'l', geom=c("line"), xlab = "Interval", ylab = "Number of steps") + facet_wrap(~ day, ncol = 1)
+
+```
+
